@@ -276,6 +276,205 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshPOsBtn.addEventListener('click', loadPOs);
 
+    // --- BOM Editor ---
+    const bomTreeRoot = document.getElementById('bom-tree');
+    const refreshBOMBtn = document.getElementById('refresh-bom');
+    
+    // Modals
+    const bomAddModal = document.getElementById('bom-add-modal');
+    const bomEditModal = document.getElementById('bom-edit-modal');
+    const bomAddSelect = document.getElementById('bom-add-child');
+    let allItemsCache = [];
+
+    async function loadItemsForSelect() {
+        if (allItemsCache.length === 0) {
+            const res = await fetch('/api/items');
+            allItemsCache = await res.json();
+        }
+        bomAddSelect.innerHTML = allItemsCache.map(item => 
+            `<option value="${item.item_id}">${item.item_id} - ${item.description}</option>`
+        ).join('');
+    }
+
+    async function loadBOM() {
+        try {
+            bomTreeRoot.innerHTML = '<li>Loading BOM...</li>';
+            const res = await fetch('/api/bom/tree');
+            const data = await res.json();
+            
+            bomTreeRoot.innerHTML = '';
+            data.forEach(node => {
+                bomTreeRoot.appendChild(renderBOMNode(node, true));
+            });
+        } catch (e) {
+            console.error(e);
+            bomTreeRoot.innerHTML = '<li style="color:var(--danger)">Failed to load BOM.</li>';
+        }
+    }
+
+    function renderBOMNode(node, isRoot = false, parentId = null) {
+        const li = document.createElement('li');
+        li.className = 'tree-node';
+        
+        const hasChildren = node.children && node.children.length > 0;
+        const badgeClass = `badge-${node.item_type.toLowerCase()}`;
+        
+        // Build the item UI
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'tree-item';
+        
+        // Toggle chevron
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'tree-toggle';
+        toggleBtn.innerHTML = hasChildren ? '<i class="fa-solid fa-chevron-down"></i>' : '';
+        itemDiv.appendChild(toggleBtn);
+        
+        // Content
+        let contentHtml = `<strong>${node.item_id}</strong> - ${node.description} <span class="badge ${badgeClass}">${node.item_type}</span>`;
+        if (!isRoot) {
+            contentHtml += `<span style="margin-left: 10px; color: var(--text-secondary);">Qty: <strong>${node.qty_required}</strong></span>`;
+        }
+        itemDiv.insertAdjacentHTML('beforeend', `<div>${contentHtml}</div>`);
+        
+        // Actions
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'tree-actions';
+        
+        if (!isRoot) {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'bom-action-btn';
+            editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                openEditBOMModal(parentId, node.item_id, node.qty_required);
+            };
+            actionsDiv.appendChild(editBtn);
+        }
+        
+        // Only FG and SA can have children realistically, but let's allow adding to anything for flexibility
+        if (node.item_type !== 'RM') {
+            const addBtn = document.createElement('button');
+            addBtn.className = 'bom-action-btn';
+            addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+            addBtn.onclick = (e) => {
+                e.stopPropagation();
+                openAddBOMModal(node.item_id);
+            };
+            actionsDiv.appendChild(addBtn);
+        }
+
+        itemDiv.appendChild(actionsDiv);
+        li.appendChild(itemDiv);
+        
+        // Children list
+        if (hasChildren) {
+            const childrenUl = document.createElement('ul');
+            childrenUl.className = 'tree-children';
+            node.children.forEach(child => {
+                childrenUl.appendChild(renderBOMNode(child, false, node.item_id));
+            });
+            li.appendChild(childrenUl);
+            
+            // Toggle logic
+            toggleBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleBtn.classList.toggle('collapsed');
+                childrenUl.style.display = childrenUl.style.display === 'none' ? 'block' : 'none';
+            };
+        }
+        
+        return li;
+    }
+
+    refreshBOMBtn.addEventListener('click', loadBOM);
+
+    // Add Modal Logic
+    async function openAddBOMModal(parentId) {
+        document.getElementById('bom-add-parent-id').innerText = parentId;
+        document.getElementById('bom-add-qty').value = 1;
+        await loadItemsForSelect();
+        // Remove parent from options to prevent trivial direct cycle
+        Array.from(bomAddSelect.options).forEach(opt => {
+            opt.disabled = opt.value === parentId;
+        });
+        bomAddModal.classList.remove('hidden');
+    }
+
+    document.getElementById('save-bom-add').addEventListener('click', async () => {
+        const parentId = document.getElementById('bom-add-parent-id').innerText;
+        const childId = bomAddSelect.value;
+        const qty = parseInt(document.getElementById('bom-add-qty').value, 10);
+        
+        try {
+            const res = await fetch('/api/bom/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({parent_id: parentId, child_id: childId, qty_required: qty})
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Failed to add component.");
+            }
+            bomAddModal.classList.add('hidden');
+            loadBOM();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    // Edit/Delete Logic
+    function openEditBOMModal(parentId, childId, qty) {
+        document.getElementById('bom-edit-parent').value = parentId;
+        document.getElementById('bom-edit-child').value = childId;
+        document.getElementById('bom-edit-qty').value = qty;
+        bomEditModal.classList.remove('hidden');
+    }
+
+    document.getElementById('save-bom-edit').addEventListener('click', async () => {
+        const parentId = document.getElementById('bom-edit-parent').value;
+        const childId = document.getElementById('bom-edit-child').value;
+        const qty = parseInt(document.getElementById('bom-edit-qty').value, 10);
+        
+        try {
+            await fetch('/api/bom/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({parent_id: parentId, child_id: childId, qty_required: qty})
+            });
+            bomEditModal.classList.add('hidden');
+            loadBOM();
+        } catch (e) {
+            alert("Failed to update.");
+        }
+    });
+
+    document.getElementById('delete-bom-component').addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to remove this component?")) return;
+        const parentId = document.getElementById('bom-edit-parent').value;
+        const childId = document.getElementById('bom-edit-child').value;
+        
+        try {
+            await fetch('/api/bom/remove', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({parent_id: parentId, child_id: childId})
+            });
+            bomEditModal.classList.add('hidden');
+            loadBOM();
+        } catch (e) {
+            alert("Failed to delete.");
+        }
+    });
+
+    // Override Nav click to load BOM when selected
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            if (link.dataset.view === 'bom') {
+                loadBOM();
+            }
+        });
+    });
+
     // Initial load
     loadInventory();
 });

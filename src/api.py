@@ -153,6 +153,133 @@ def update_po_status(update: POStatusUpdate):
     conn.close()
     return {"status": "success", "message": f"PO {update.po_id} updated to {update.status}"}
 
+class BOMUpdate(BaseModel):
+    parent_id: str
+    child_id: str
+    qty_required: int
+
+class BOMAdd(BaseModel):
+    parent_id: str
+    child_id: str
+    qty_required: int
+
+class BOMRemove(BaseModel):
+    parent_id: str
+    child_id: str
+
+@app.get("/api/bom/tree")
+def get_bom_tree():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get all items
+    cursor.execute("SELECT item_id, description, item_type FROM Items")
+    items = {row['item_id']: dict(row) for row in cursor.fetchall()}
+    
+    # Get all BOM relationships
+    cursor.execute("SELECT parent_item_id, child_item_id, qty_required FROM BOM")
+    bom_rows = cursor.fetchall()
+    
+    conn.close()
+    
+    # Find root nodes (Items that are parents but never children)
+    all_parents = set(row['parent_item_id'] for row in bom_rows)
+    all_children = set(row['child_item_id'] for row in bom_rows)
+    roots = all_parents - all_children
+    
+    # Build tree
+    def build_node(item_id, qty=1):
+        node = {
+            'item_id': item_id,
+            'description': items[item_id]['description'],
+            'item_type': items[item_id]['item_type'],
+            'qty_required': qty,
+            'children': []
+        }
+        for row in bom_rows:
+            if row['parent_item_id'] == item_id:
+                node['children'].append(build_node(row['child_item_id'], row['qty_required']))
+        return node
+
+    tree = [build_node(root) for root in roots]
+    return tree
+
+@app.get("/api/items")
+def get_items():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT item_id, description, item_type FROM Items ORDER BY item_id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def check_circular(cursor, new_parent, new_child):
+    # If we add parent -> child, we must ensure child does not eventually lead to parent
+    # BFS starting from child
+    queue = [new_child]
+    visited = set([new_child])
+    
+    while queue:
+        current = queue.pop(0)
+        if current == new_parent:
+            return True
+        cursor.execute("SELECT child_item_id FROM BOM WHERE parent_item_id = ?", (current,))
+        for row in cursor.fetchall():
+            if row['child_item_id'] not in visited:
+                visited.add(row['child_item_id'])
+                queue.append(row['child_item_id'])
+    return False
+
+@app.post("/api/bom/add")
+def add_bom(add: BOMAdd):
+    if add.parent_id == add.child_id:
+        raise HTTPException(status_code=400, detail="An item cannot be a component of itself.")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if relationship already exists
+    cursor.execute("SELECT 1 FROM BOM WHERE parent_item_id = ? AND child_item_id = ?", (add.parent_id, add.child_id))
+    if cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="This component relationship already exists.")
+        
+    if check_circular(cursor, add.parent_id, add.child_id):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Circular dependency detected.")
+        
+    cursor.execute(
+        "INSERT INTO BOM (parent_item_id, child_item_id, qty_required) VALUES (?, ?, ?)",
+        (add.parent_id, add.child_id, add.qty_required)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.post("/api/bom/update")
+def update_bom(update: BOMUpdate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE BOM SET qty_required = ? WHERE parent_item_id = ? AND child_item_id = ?",
+        (update.qty_required, update.parent_id, update.child_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.delete("/api/bom/remove")
+def remove_bom(remove: BOMRemove):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM BOM WHERE parent_item_id = ? AND child_item_id = ?",
+        (remove.parent_id, remove.child_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
 # Mount static directory to serve frontend
 # Using check_dir to only mount if the directory exists (it should when we create it)
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))

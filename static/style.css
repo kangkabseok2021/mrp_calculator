@@ -386,3 +386,86 @@ body {
     gap: 1rem;
     margin-top: 2rem;
 }
+
+/* BOM Tree Styles */
+.bom-tree-container {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.tree-root, .tree-children {
+    list-style-type: none;
+    padding-left: 20px;
+}
+
+.tree-root {
+    padding-left: 0;
+}
+
+.tree-node {
+    margin: 5px 0;
+    position: relative;
+}
+
+.tree-children {
+    border-left: 1px dashed var(--glass-border);
+    margin-left: 10px;
+}
+
+.tree-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tree-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tree-toggle {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 20px;
+    display: inline-flex;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.tree-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.tree-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.tree-item:hover .tree-actions {
+    opacity: 1;
+}
+
+.bom-action-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.bom-action-btn:hover { background: rgba(255,255,255,0.2); }
+

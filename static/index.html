@@ -24,6 +24,9 @@
                 <a href="#" class="nav-link" data-view="po">
                     <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                 </a>
+                <a href="#" class="nav-link" data-view="bom">
+                    <i class="fa-solid fa-sitemap"></i> BOM Editor
+                </a>
             </nav>
         </aside>
 
@@ -134,11 +137,28 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- BOM View -->
+                <section id="bom-view" class="view-section">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Bill of Materials (BOM)</h2>
+                            <button id="refresh-bom" class="btn btn-secondary">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="bom-tree-container">
+                            <ul id="bom-tree" class="tree-root">
+                                <!-- Populated by JS -->
+                            </ul>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Edit Inventory Modal -->
     <div id="edit-modal" class="modal hidden">
         <div class="modal-content glass-card">
             <div class="modal-header">
@@ -158,6 +178,57 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary close-modal">Cancel</button>
                 <button class="btn btn-primary" id="save-inventory">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOM Add Component Modal -->
+    <div id="bom-add-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Add Component to <span id="bom-add-parent-id"></span></h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Component</label>
+                    <select id="bom-add-child" class="status-select" style="width: 100%; padding: 0.75rem 1rem;">
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity Required</label>
+                    <input type="number" id="bom-add-qty" min="1" value="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-bom-add">Add Component</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOM Edit Component Modal -->
+    <div id="bom-edit-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Edit Component</h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="bom-edit-parent">
+                <input type="hidden" id="bom-edit-child">
+                <div class="form-group">
+                    <label>Quantity Required</label>
+                    <input type="number" id="bom-edit-qty" min="1">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="btn" id="delete-bom-component" style="background: rgba(239, 68, 68, 0.2); color: #EF4444;"><i class="fa-solid fa-trash"></i> Remove</button>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-bom-edit">Save Changes</button>
+                </div>
             </div>
         </div>
     </div>
