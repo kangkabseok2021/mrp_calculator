@@ -21,6 +21,9 @@
                 <a href="#" class="nav-link" data-view="mrp">
                     <i class="fa-solid fa-gears"></i> MRP Engine
                 </a>
+                <a href="#" class="nav-link" data-view="po">
+                    <i class="fa-solid fa-file-invoice"></i> Purchase Orders
+                </a>
             </nav>
         </aside>
 
@@ -67,9 +70,14 @@
                     <div class="card glass-card">
                         <div class="card-header">
                             <h2>Purchase Order Schedule</h2>
-                            <button id="run-mrp" class="btn btn-primary pulse-btn">
-                                <i class="fa-solid fa-play"></i> Run MRP
-                            </button>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="run-mrp" class="btn btn-primary pulse-btn">
+                                    <i class="fa-solid fa-play"></i> Run MRP
+                                </button>
+                                <button id="commit-pos" class="btn btn-secondary hidden">
+                                    <i class="fa-solid fa-check"></i> Commit Schedule
+                                </button>
+                            </div>
                         </div>
                         <div id="mrp-loading" class="loading-state hidden">
                             <div class="spinner"></div>
@@ -90,6 +98,37 @@
                                     <tr class="empty-state">
                                         <td colspan="4">Run the MRP Engine to generate schedule.</td>
                                     </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PO View -->
+                <section id="po-view" class="view-section">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Purchase Order Management</h2>
+                            <button id="refresh-pos" class="btn btn-secondary">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>PO #</th>
+                                        <th>Item ID</th>
+                                        <th>Description</th>
+                                        <th>Qty</th>
+                                        <th>Order Date</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="po-table-body">
+                                    <!-- Populated by JS -->
                                 </tbody>
                             </table>
                         </div>

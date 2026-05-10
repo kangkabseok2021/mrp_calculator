@@ -9,7 +9,7 @@ def setup_database():
     cursor = conn.cursor()
 
     # Drop existing tables to reset
-    tables = ["Items", "Inventory", "BOM", "Forecast"]
+    tables = ["PurchaseOrders", "Items", "Inventory", "BOM", "Forecast"]
     for table in tables:
         cursor.execute(f"DROP TABLE IF EXISTS {table}")
 
@@ -49,6 +49,19 @@ def setup_database():
             item_id TEXT,
             due_date INTEGER,  -- Storing dates as day integers for simplicity in logic (e.g., Day 15)
             demand_qty INTEGER,
+            FOREIGN KEY(item_id) REFERENCES Items(item_id)
+        )
+    """)
+
+    # Create PurchaseOrders Table
+    cursor.execute("""
+        CREATE TABLE PurchaseOrders (
+            po_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id TEXT,
+            qty INTEGER,
+            order_date INTEGER,
+            due_date INTEGER,
+            status TEXT DEFAULT 'Pending',
             FOREIGN KEY(item_id) REFERENCES Items(item_id)
         )
     """)

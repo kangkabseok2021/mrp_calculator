@@ -73,6 +73,86 @@ def get_bom():
     conn.close()
     return [dict(row) for row in rows]
 
+class POStatusUpdate(BaseModel):
+    po_id: int
+    status: str
+
+@app.post("/api/po/commit")
+def commit_pos():
+    try:
+        # Run MRP engine to get latest schedule
+        engine = MRPEngine(DB_PATH)
+        engine.run()
+        por = engine.get_planned_orders()
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete only Pending POs to avoid duplicate inserts on multiple runs.
+        # Ordered and Received POs are preserved.
+        cursor.execute("DELETE FROM PurchaseOrders WHERE status = 'Pending'")
+        
+        if not por.empty:
+            po_data = []
+            for _, row in por.iterrows():
+                po_data.append((row['item_id'], int(row['qty']), int(row['release_date']), int(row['due_date'])))
+                
+            cursor.executemany(
+                "INSERT INTO PurchaseOrders (item_id, qty, order_date, due_date) VALUES (?, ?, ?, ?)", 
+                po_data
+            )
+            
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Schedule committed to Purchase Orders."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/pos")
+def get_pos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT po.po_id, po.item_id, po.qty, po.order_date, po.due_date, po.status, it.description
+        FROM PurchaseOrders po
+        JOIN Items it ON po.item_id = it.item_id
+        ORDER BY po.order_date ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.post("/api/po/status")
+def update_po_status(update: POStatusUpdate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check current status
+    cursor.execute("SELECT status, item_id, qty FROM PurchaseOrders WHERE po_id = ?", (update.po_id,))
+    po = cursor.fetchone()
+    
+    if not po:
+        conn.close()
+        raise HTTPException(status_code=404, detail="PO not found")
+        
+    if po['status'] == 'Received':
+        conn.close()
+        raise HTTPException(status_code=400, detail="Cannot change status of an already received PO.")
+
+    # Update PO status
+    cursor.execute("UPDATE PurchaseOrders SET status = ? WHERE po_id = ?", (update.status, update.po_id))
+    
+    # If received, add to inventory
+    if update.status == 'Received':
+        cursor.execute(
+            "UPDATE Inventory SET on_hand_qty = on_hand_qty + ? WHERE item_id = ?", 
+            (po['qty'], po['item_id'])
+        )
+        
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": f"PO {update.po_id} updated to {update.status}"}
+
 # Mount static directory to serve frontend
 # Using check_dir to only mount if the directory exists (it should when we create it)
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))

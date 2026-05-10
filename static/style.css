@@ -277,6 +277,28 @@ body {
 .badge-sa { background: rgba(16, 185, 129, 0.2); color: #34D399; }
 .badge-rm { background: rgba(245, 158, 11, 0.2); color: #FBBF24; }
 
+/* PO Badges */
+.badge-pending { background: rgba(148, 163, 184, 0.2); color: #94A3B8; }
+.badge-ordered { background: rgba(59, 130, 246, 0.2); color: #60A5FA; }
+.badge-intransit { background: rgba(245, 158, 11, 0.2); color: #FBBF24; }
+.badge-received { background: rgba(16, 185, 129, 0.2); color: #34D399; }
+
+/* Status Select */
+.status-select {
+    background: var(--bg-main);
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.status-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Modal */
 .modal {
     position: fixed;
