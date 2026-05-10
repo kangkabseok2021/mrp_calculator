@@ -27,6 +27,9 @@
                 <a href="#" class="nav-link" data-view="bom">
                     <i class="fa-solid fa-sitemap"></i> BOM Editor
                 </a>
+                <a href="#" class="nav-link" data-view="forecast">
+                    <i class="fa-solid fa-chart-line"></i> Sales & Forecasting
+                </a>
             </nav>
         </aside>
 
@@ -154,6 +157,40 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- Forecast View -->
+                <section id="forecast-view" class="view-section">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Master Production Schedule (MPS)</h2>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="add-forecast-btn" class="btn btn-primary">
+                                    <i class="fa-solid fa-plus"></i> Add Forecast
+                                </button>
+                                <button id="refresh-forecast" class="btn btn-secondary">
+                                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item ID</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Due Date (Day)</th>
+                                        <th>Demand Qty</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="forecast-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
@@ -228,6 +265,64 @@
                 <div style="display: flex; gap: 1rem;">
                     <button class="btn btn-secondary close-modal">Cancel</button>
                     <button class="btn btn-primary" id="save-bom-edit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forecast Add Modal -->
+    <div id="forecast-add-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Add Customer Demand</h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Item</label>
+                    <select id="forecast-add-item" class="status-select" style="width: 100%; padding: 0.75rem 1rem;">
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Due Date (Day Integer)</label>
+                    <input type="number" id="forecast-add-date" min="1" value="30">
+                </div>
+                <div class="form-group">
+                    <label>Demand Quantity</label>
+                    <input type="number" id="forecast-add-qty" min="1" value="100">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-forecast-add">Save Demand</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forecast Edit Modal -->
+    <div id="forecast-edit-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Edit Demand <span id="forecast-edit-item-display"></span></h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="forecast-edit-rowid">
+                <div class="form-group">
+                    <label>Due Date (Day Integer)</label>
+                    <input type="number" id="forecast-edit-date" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Demand Quantity</label>
+                    <input type="number" id="forecast-edit-qty" min="1">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="btn" id="delete-forecast-btn" style="background: rgba(239, 68, 68, 0.2); color: #EF4444;"><i class="fa-solid fa-trash"></i> Remove</button>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-forecast-edit">Save Changes</button>
                 </div>
             </div>
         </div>

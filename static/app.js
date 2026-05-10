@@ -466,11 +466,149 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Override Nav click to load BOM when selected
+    // --- Sales & Forecasting (MPS) ---
+    const forecastTableBody = document.getElementById('forecast-table-body');
+    const refreshForecastBtn = document.getElementById('refresh-forecast');
+    const addForecastBtn = document.getElementById('add-forecast-btn');
+    
+    // Modals
+    const forecastAddModal = document.getElementById('forecast-add-modal');
+    const forecastEditModal = document.getElementById('forecast-edit-modal');
+    const forecastAddSelect = document.getElementById('forecast-add-item');
+
+    async function loadForecasts() {
+        try {
+            forecastTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Loading...</td></tr>';
+            const res = await fetch('/api/forecast');
+            const data = await res.json();
+            
+            forecastTableBody.innerHTML = '';
+            if (data.length === 0) {
+                forecastTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No forecast demand found.</td></tr>';
+                return;
+            }
+
+            data.forEach(entry => {
+                const badgeClass = `badge-${entry.item_type.toLowerCase()}`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${entry.item_id}</strong></td>
+                    <td>${entry.description}</td>
+                    <td><span class="badge ${badgeClass}">${entry.item_type}</span></td>
+                    <td>Day ${entry.due_date}</td>
+                    <td><span style="font-weight: 600; font-size: 1.1rem;">${entry.demand_qty}</span> units</td>
+                    <td>
+                        <button class="btn btn-secondary" onclick="openEditForecastModal(${entry.rowid}, '${entry.item_id}', ${entry.due_date}, ${entry.demand_qty})">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </td>
+                `;
+                forecastTableBody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error(e);
+            forecastTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Failed to load forecast data.</td></tr>';
+        }
+    }
+
+    refreshForecastBtn.addEventListener('click', loadForecasts);
+
+    // Add Forecast
+    addForecastBtn.addEventListener('click', async () => {
+        await loadItemsForSelect();
+        // Populate items in Forecast select (reuse the cache from BOM)
+        forecastAddSelect.innerHTML = allItemsCache.map(item => 
+            `<option value="${item.item_id}">${item.item_id} - ${item.description}</option>`
+        ).join('');
+        
+        // Default to FG001 if available
+        if (allItemsCache.find(i => i.item_id === 'FG001')) {
+            forecastAddSelect.value = 'FG001';
+        }
+        
+        forecastAddModal.classList.remove('hidden');
+    });
+
+    document.getElementById('save-forecast-add').addEventListener('click', async () => {
+        const itemId = forecastAddSelect.value;
+        const date = parseInt(document.getElementById('forecast-add-date').value, 10);
+        const qty = parseInt(document.getElementById('forecast-add-qty').value, 10);
+        
+        if (qty <= 0 || date <= 0) {
+            alert("Quantity and Date must be positive integers.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/forecast/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({item_id: itemId, due_date: date, demand_qty: qty})
+            });
+            if (!res.ok) throw new Error("Failed to add forecast");
+            forecastAddModal.classList.add('hidden');
+            loadForecasts();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    // Edit/Delete Forecast
+    window.openEditForecastModal = function(rowid, itemId, dueDate, qty) {
+        document.getElementById('forecast-edit-rowid').value = rowid;
+        document.getElementById('forecast-edit-item-display').innerText = `(${itemId})`;
+        document.getElementById('forecast-edit-date').value = dueDate;
+        document.getElementById('forecast-edit-qty').value = qty;
+        forecastEditModal.classList.remove('hidden');
+    };
+
+    document.getElementById('save-forecast-edit').addEventListener('click', async () => {
+        const rowid = parseInt(document.getElementById('forecast-edit-rowid').value, 10);
+        const date = parseInt(document.getElementById('forecast-edit-date').value, 10);
+        const qty = parseInt(document.getElementById('forecast-edit-qty').value, 10);
+        
+        if (qty <= 0 || date <= 0) {
+            alert("Quantity and Date must be positive integers.");
+            return;
+        }
+        
+        try {
+            const res = await fetch('/api/forecast/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rowid: rowid, due_date: date, demand_qty: qty})
+            });
+            if (!res.ok) throw new Error("Failed to update forecast");
+            forecastEditModal.classList.add('hidden');
+            loadForecasts();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    document.getElementById('delete-forecast-btn').addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to remove this demand entry?")) return;
+        const rowid = parseInt(document.getElementById('forecast-edit-rowid').value, 10);
+        
+        try {
+            const res = await fetch('/api/forecast/remove', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rowid: rowid})
+            });
+            if (!res.ok) throw new Error("Failed to delete forecast");
+            forecastEditModal.classList.add('hidden');
+            loadForecasts();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    // Nav extension
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
-            if (link.dataset.view === 'bom') {
-                loadBOM();
+            if (link.dataset.view === 'forecast') {
+                loadForecasts();
             }
         });
     });

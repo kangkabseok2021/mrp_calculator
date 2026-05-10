@@ -280,6 +280,66 @@ def remove_bom(remove: BOMRemove):
     conn.close()
     return {"status": "success"}
 
+class ForecastAdd(BaseModel):
+    item_id: str
+    due_date: int
+    demand_qty: int
+
+class ForecastUpdate(BaseModel):
+    rowid: int
+    due_date: int
+    demand_qty: int
+
+class ForecastRemove(BaseModel):
+    rowid: int
+
+@app.get("/api/forecast")
+def get_forecast():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT f.rowid, f.item_id, f.due_date, f.demand_qty, it.description, it.item_type
+        FROM Forecast f
+        JOIN Items it ON f.item_id = it.item_id
+        ORDER BY f.due_date ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.post("/api/forecast/add")
+def add_forecast(add: ForecastAdd):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO Forecast (item_id, due_date, demand_qty) VALUES (?, ?, ?)",
+        (add.item_id, add.due_date, add.demand_qty)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.post("/api/forecast/update")
+def update_forecast(update: ForecastUpdate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE Forecast SET due_date = ?, demand_qty = ? WHERE rowid = ?",
+        (update.due_date, update.demand_qty, update.rowid)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.delete("/api/forecast/remove")
+def remove_forecast(remove: ForecastRemove):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Forecast WHERE rowid = ?", (remove.rowid,))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
 # Mount static directory to serve frontend
 # Using check_dir to only mount if the directory exists (it should when we create it)
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
