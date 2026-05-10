@@ -2,3 +2,8 @@ pandas==2.2.2
 pytest==8.2.0
 fastapi
 uvicorn
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+openpyxl
+fpdf2

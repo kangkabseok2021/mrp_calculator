@@ -1,5 +1,79 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Navigation
+    // --- Auth Setup ---
+    const originalFetch = window.fetch;
+    window.fetch = async function() {
+        let [resource, config] = arguments;
+        if (!config) config = {};
+        if (!config.headers) config.headers = {};
+        
+        const token = localStorage.getItem('erp_token');
+        if (token) {
+            if (config.headers instanceof Headers) {
+                config.headers.append('Authorization', `Bearer ${token}`);
+            } else {
+                config.headers['Authorization'] = `Bearer ${token}`;
+            }
+        }
+        
+        const response = await originalFetch(resource, config);
+        if (response.status === 401 && resource !== '/api/token') {
+            showLogin();
+        }
+        return response;
+    };
+
+    function showLogin() {
+        document.getElementById('login-overlay').style.display = 'flex';
+        document.getElementById('dashboard-wrapper').style.display = 'none';
+    }
+
+    function hideLogin() {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('dashboard-wrapper').style.display = 'flex';
+        loadInventory(); // Initial load after auth
+    }
+
+    // Check token on load
+    if (!localStorage.getItem('erp_token')) {
+        showLogin();
+    } else {
+        hideLogin();
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const u = document.getElementById('login-username').value;
+        const p = document.getElementById('login-password').value;
+        const err = document.getElementById('login-error');
+        err.style.display = 'none';
+        
+        const formData = new URLSearchParams();
+        formData.append('username', u);
+        formData.append('password', p);
+
+        try {
+            const res = await originalFetch('/api/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+            if (!res.ok) throw new Error("Invalid credentials");
+            const data = await res.json();
+            localStorage.setItem('erp_token', data.access_token);
+            hideLogin();
+        } catch (error) {
+            err.innerText = error.message;
+            err.style.display = 'block';
+        }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('erp_token');
+        showLogin();
+    });
+
+    // --- Navigation ---
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('.view-section');
 
@@ -134,10 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tr>
                 `;
                 document.getElementById('commit-pos').classList.add('hidden');
+                document.getElementById('export-mrp-excel').classList.add('hidden');
+                document.getElementById('export-mrp-pdf').classList.add('hidden');
                 return;
             }
 
             document.getElementById('commit-pos').classList.remove('hidden');
+            document.getElementById('export-mrp-excel').classList.remove('hidden');
+            document.getElementById('export-mrp-pdf').classList.remove('hidden');
 
             schedule.forEach(order => {
                 const tr = document.createElement('tr');
@@ -604,15 +682,142 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Export Logic ---
+    document.getElementById('export-mrp-excel').addEventListener('click', () => {
+        const token = localStorage.getItem('erp_token');
+        window.open('/api/export/mrp/excel?token=' + token, '_blank');
+    });
+
+    document.getElementById('export-mrp-pdf').addEventListener('click', () => {
+        const token = localStorage.getItem('erp_token');
+        window.open('/api/export/mrp/pdf?token=' + token, '_blank');
+    });
+
+    // --- Supplier Database ---
+    const suppliersTableBody = document.getElementById('suppliers-table-body');
+    const refreshSuppliersBtn = document.getElementById('refresh-suppliers');
+    const addSupplierBtn = document.getElementById('add-supplier-btn');
+    
+    const supplierAddModal = document.getElementById('supplier-add-modal');
+    const supplierEditModal = document.getElementById('supplier-edit-modal');
+
+    async function loadSuppliers() {
+        try {
+            suppliersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Loading...</td></tr>';
+            const res = await fetch('/api/suppliers');
+            const data = await res.json();
+            
+            suppliersTableBody.innerHTML = '';
+            if (data.length === 0) {
+                suppliersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No suppliers found.</td></tr>';
+                return;
+            }
+
+            data.forEach(supplier => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${supplier.supplier_id}</td>
+                    <td><strong>${supplier.name}</strong></td>
+                    <td>${supplier.contact_email}</td>
+                    <td>${supplier.lead_time_modifier}</td>
+                    <td>
+                        <button class="btn btn-secondary" onclick="openEditSupplierModal(${supplier.supplier_id}, '${supplier.name}', '${supplier.contact_email}', ${supplier.lead_time_modifier})">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </td>
+                `;
+                suppliersTableBody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error(e);
+            suppliersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger);">Failed to load suppliers.</td></tr>';
+        }
+    }
+
+    refreshSuppliersBtn.addEventListener('click', loadSuppliers);
+
+    addSupplierBtn.addEventListener('click', () => {
+        supplierAddModal.classList.remove('hidden');
+    });
+
+    document.getElementById('save-supplier-add').addEventListener('click', async () => {
+        const name = document.getElementById('supplier-add-name').value;
+        const email = document.getElementById('supplier-add-email').value;
+        const ltm = parseInt(document.getElementById('supplier-add-ltm').value, 10);
+        
+        try {
+            const res = await fetch('/api/suppliers/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, contact_email: email, lead_time_modifier: ltm})
+            });
+            if (!res.ok) throw new Error("Failed to add supplier");
+            supplierAddModal.classList.add('hidden');
+            loadSuppliers();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    window.openEditSupplierModal = function(id, name, email, ltm) {
+        document.getElementById('supplier-edit-id').value = id;
+        document.getElementById('supplier-edit-name').value = name;
+        document.getElementById('supplier-edit-email').value = email;
+        document.getElementById('supplier-edit-ltm').value = ltm;
+        supplierEditModal.classList.remove('hidden');
+    };
+
+    document.getElementById('save-supplier-edit').addEventListener('click', async () => {
+        const id = parseInt(document.getElementById('supplier-edit-id').value, 10);
+        const name = document.getElementById('supplier-edit-name').value;
+        const email = document.getElementById('supplier-edit-email').value;
+        const ltm = parseInt(document.getElementById('supplier-edit-ltm').value, 10);
+        
+        try {
+            const res = await fetch('/api/suppliers/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({supplier_id: id, name, contact_email: email, lead_time_modifier: ltm})
+            });
+            if (!res.ok) throw new Error("Failed to update supplier");
+            supplierEditModal.classList.add('hidden');
+            loadSuppliers();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
+    document.getElementById('delete-supplier-btn').addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to remove this supplier?")) return;
+        const id = parseInt(document.getElementById('supplier-edit-id').value, 10);
+        
+        try {
+            const res = await fetch('/api/suppliers/remove', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({supplier_id: id})
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Failed to delete supplier");
+            }
+            supplierEditModal.classList.add('hidden');
+            loadSuppliers();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+
     // Nav extension
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             if (link.dataset.view === 'forecast') {
                 loadForecasts();
+            } else if (link.dataset.view === 'suppliers') {
+                loadSuppliers();
             }
         });
     });
 
-    // Initial load
-    loadInventory();
+    // Remove loadInventory() from here since it's called after login
 });

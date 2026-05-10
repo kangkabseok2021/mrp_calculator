@@ -1,7 +1,9 @@
 import sqlite3
 import os
+from passlib.context import CryptContext
 
 DB_FILE = "mrp_database.db"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def setup_database():
     # Ensure we start fresh or clear existing
@@ -9,17 +11,38 @@ def setup_database():
     cursor = conn.cursor()
 
     # Drop existing tables to reset
-    tables = ["PurchaseOrders", "Items", "Inventory", "BOM", "Forecast"]
+    tables = ["Users", "Suppliers", "PurchaseOrders", "Items", "Inventory", "BOM", "Forecast"]
     for table in tables:
         cursor.execute(f"DROP TABLE IF EXISTS {table}")
 
-    # Create Items Table
+    # Create Users Table
+    cursor.execute("""
+        CREATE TABLE Users (
+            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            hashed_password TEXT
+        )
+    """)
+
+    # Create Suppliers Table
+    cursor.execute("""
+        CREATE TABLE Suppliers (
+            supplier_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            contact_email TEXT,
+            lead_time_modifier INTEGER DEFAULT 0
+        )
+    """)
+
+    # Create Items Table (Added default_supplier_id)
     cursor.execute("""
         CREATE TABLE Items (
             item_id TEXT PRIMARY KEY,
             description TEXT,
             item_type TEXT,
-            lead_time_days INTEGER
+            lead_time_days INTEGER,
+            default_supplier_id INTEGER,
+            FOREIGN KEY(default_supplier_id) REFERENCES Suppliers(supplier_id)
         )
     """)
 
@@ -66,21 +89,35 @@ def setup_database():
         )
     """)
 
-    # Insert Sample Data - "Bicycle"
+    # Insert Sample Data
+    
+    # 1. Users
+    hashed_pwd = pwd_context.hash("admin")
+    cursor.execute("INSERT INTO Users (username, hashed_password) VALUES (?, ?)", ("admin", hashed_pwd))
 
-    items_data = [
-        ("FG001", "Mountain Bike", "FG", 1),
-        ("SA001", "Wheel Assembly", "SA", 2),
-        ("SA002", "Frame Assembly", "SA", 3),
-        ("RM001", "Tire", "RM", 5),
-        ("RM002", "Rim", "RM", 4),
-        ("RM003", "Spokes", "RM", 3),
-        ("RM004", "Frame Tube", "RM", 7),
-        ("RM005", "Handlebar", "RM", 4),
-        ("RM006", "Pedals", "RM", 2)
+    # 2. Suppliers
+    suppliers_data = [
+        ("Global Metals Inc", "sales@globalmetals.com", 0),
+        ("Advanced Rubber Co", "orders@advancedrubber.com", 1),
+        ("Nexus Manufacturing", "internal@nexus.com", 0)
     ]
-    cursor.executemany("INSERT INTO Items VALUES (?, ?, ?, ?)", items_data)
+    cursor.executemany("INSERT INTO Suppliers (name, contact_email, lead_time_modifier) VALUES (?, ?, ?)", suppliers_data)
 
+    # 3. Items (Assigned to Suppliers: 1=Metals, 2=Rubber, 3=Internal)
+    items_data = [
+        ("FG001", "Mountain Bike", "FG", 1, 3),
+        ("SA001", "Wheel Assembly", "SA", 2, 3),
+        ("SA002", "Frame Assembly", "SA", 3, 3),
+        ("RM001", "Tire", "RM", 5, 2),
+        ("RM002", "Rim", "RM", 4, 1),
+        ("RM003", "Spokes", "RM", 3, 1),
+        ("RM004", "Frame Tube", "RM", 7, 1),
+        ("RM005", "Handlebar", "RM", 4, 1),
+        ("RM006", "Pedals", "RM", 2, 2)
+    ]
+    cursor.executemany("INSERT INTO Items VALUES (?, ?, ?, ?, ?)", items_data)
+
+    # 4. Inventory
     inventory_data = [
         ("FG001", 10),
         ("SA001", 20),
@@ -94,27 +131,29 @@ def setup_database():
     ]
     cursor.executemany("INSERT INTO Inventory VALUES (?, ?)", inventory_data)
 
+    # 5. BOM
     bom_data = [
-        ("FG001", "SA001", 2),  # 2 Wheels per bike
-        ("FG001", "SA002", 1),  # 1 Frame assembly per bike
-        ("FG001", "RM005", 1),  # 1 Handlebar per bike
-        ("FG001", "RM006", 2),  # 2 Pedals per bike
-        ("SA001", "RM001", 1),  # 1 Tire per wheel
-        ("SA001", "RM002", 1),  # 1 Rim per wheel
-        ("SA001", "RM003", 36), # 36 Spokes per wheel
-        ("SA002", "RM004", 1)   # 1 Frame Tube set per Frame Assembly
+        ("FG001", "SA001", 2),
+        ("FG001", "SA002", 1),
+        ("FG001", "RM005", 1),
+        ("FG001", "RM006", 2),
+        ("SA001", "RM001", 1),
+        ("SA001", "RM002", 1),
+        ("SA001", "RM003", 36),
+        ("SA002", "RM004", 1)
     ]
     cursor.executemany("INSERT INTO BOM VALUES (?, ?, ?)", bom_data)
 
+    # 6. Forecast
     forecast_data = [
-        ("FG001", 15, 50),  # Demand of 50 bikes on day 15
-        ("FG001", 20, 100)  # Demand of 100 bikes on day 20
+        ("FG001", 15, 50),
+        ("FG001", 20, 100)
     ]
     cursor.executemany("INSERT INTO Forecast VALUES (?, ?, ?)", forecast_data)
 
     conn.commit()
     conn.close()
-    print("Database setup complete with sample Bicycle data.")
+    print("Database setup complete with Auth and Supplier tables.")
 
 if __name__ == "__main__":
     setup_database()

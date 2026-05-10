@@ -9,7 +9,32 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="dashboard-container">
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card glass-card">
+            <div class="login-header">
+                <h2>Nexus ERP</h2>
+                <p>Please sign in to continue</p>
+            </div>
+            <div class="login-body">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Sign In</button>
+                    <div id="login-error" style="color: var(--danger); margin-top: 10px; text-align: center; display: none;"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard-wrapper" class="dashboard-wrapper" style="display: none;">
         <aside class="sidebar">
             <div class="logo">
                 <i class="fa-solid fa-cube"></i> Nexus ERP
@@ -29,6 +54,12 @@
                 </a>
                 <a href="#" class="nav-link" data-view="forecast">
                     <i class="fa-solid fa-chart-line"></i> Sales & Forecasting
+                </a>
+                <a href="#" class="nav-link" data-view="suppliers">
+                    <i class="fa-solid fa-truck"></i> Supplier DB
+                </a>
+                <a href="#" id="logout-btn" class="nav-link" style="margin-top: auto; color: var(--danger);">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </a>
             </nav>
         </aside>
@@ -77,6 +108,12 @@
                         <div class="card-header">
                             <h2>Purchase Order Schedule</h2>
                             <div style="display: flex; gap: 10px;">
+                                <button id="export-mrp-excel" class="btn btn-secondary hidden" style="background: rgba(16, 185, 129, 0.2); color: #34D399;">
+                                    <i class="fa-solid fa-file-excel"></i> Export Excel
+                                </button>
+                                <button id="export-mrp-pdf" class="btn btn-secondary hidden" style="background: rgba(239, 68, 68, 0.2); color: #EF4444;">
+                                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                                </button>
                                 <button id="run-mrp" class="btn btn-primary pulse-btn">
                                     <i class="fa-solid fa-play"></i> Run MRP
                                 </button>
@@ -185,6 +222,39 @@
                                     </tr>
                                 </thead>
                                 <tbody id="forecast-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Supplier View -->
+                <section id="suppliers-view" class="view-section">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Supplier Database</h2>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="add-supplier-btn" class="btn btn-primary">
+                                    <i class="fa-solid fa-plus"></i> Add Supplier
+                                </button>
+                                <button id="refresh-suppliers" class="btn btn-secondary">
+                                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Contact Email</th>
+                                        <th>Lead Time Modifier (Days)</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="suppliers-table-body">
                                     <!-- Populated by JS -->
                                 </tbody>
                             </table>
@@ -323,6 +393,66 @@
                 <div style="display: flex; gap: 1rem;">
                     <button class="btn btn-secondary close-modal">Cancel</button>
                     <button class="btn btn-primary" id="save-forecast-edit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supplier Add Modal -->
+    <div id="supplier-add-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Add New Supplier</h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Supplier Name</label>
+                    <input type="text" id="supplier-add-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Contact Email</label>
+                    <input type="email" id="supplier-add-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Lead Time Modifier (Days)</label>
+                    <input type="number" id="supplier-add-ltm" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-supplier-add">Save Supplier</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supplier Edit Modal -->
+    <div id="supplier-edit-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Edit Supplier</h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="supplier-edit-id">
+                <div class="form-group">
+                    <label>Supplier Name</label>
+                    <input type="text" id="supplier-edit-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Contact Email</label>
+                    <input type="email" id="supplier-edit-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Lead Time Modifier (Days)</label>
+                    <input type="number" id="supplier-edit-ltm">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button class="btn" id="delete-supplier-btn" style="background: rgba(239, 68, 68, 0.2); color: #EF4444;"><i class="fa-solid fa-trash"></i> Remove</button>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-supplier-edit">Save Changes</button>
                 </div>
             </div>
         </div>
