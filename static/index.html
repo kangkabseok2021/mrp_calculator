@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-cube"></i> Nexus ERP
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-link active" data-view="inventory">
+                    <i class="fa-solid fa-boxes-stacked"></i> Inventory Manager
+                </a>
+                <a href="#" class="nav-link" data-view="mrp">
+                    <i class="fa-solid fa-gears"></i> MRP Engine
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <h1>Overview</h1>
+                <div class="user-profile">
+                    <span>Admin</span>
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                </div>
+            </header>
+
+            <div class="view-container">
+                <!-- Inventory View -->
+                <section id="inventory-view" class="view-section active">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Current Inventory</h2>
+                            <button id="refresh-inventory" class="btn btn-secondary">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item ID</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>On Hand Qty</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- MRP View -->
+                <section id="mrp-view" class="view-section">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h2>Purchase Order Schedule</h2>
+                            <button id="run-mrp" class="btn btn-primary pulse-btn">
+                                <i class="fa-solid fa-play"></i> Run MRP
+                            </button>
+                        </div>
+                        <div id="mrp-loading" class="loading-state hidden">
+                            <div class="spinner"></div>
+                            <p>Calculating multi-level requirements...</p>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item ID</th>
+                                        <th>Release Date</th>
+                                        <th>Due Date</th>
+                                        <th>Quantity Required</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mrp-table-body">
+                                    <!-- Populated by JS -->
+                                    <tr class="empty-state">
+                                        <td colspan="4">Run the MRP Engine to generate schedule.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Update Inventory</h3>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Item ID</label>
+                    <input type="text" id="edit-item-id" disabled>
+                </div>
+                <div class="form-group">
+                    <label>On Hand Quantity</label>
+                    <input type="number" id="edit-qty" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-inventory">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
